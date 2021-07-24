@@ -1,0 +1,77 @@
+package com.mitchstokes.api;
+
+import java.io.*;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.Arrays;
+import java.util.zip.GZIPInputStream;
+
+public class TelemetrySource extends DataSource {
+
+    private String urlArchive;
+    private String data;
+
+    /**
+     * Creates and processes a PUBG telemetry request using the provided URL. Stores the data in a
+     * retrievable local String. The actual API request occurs upon object creation, not upon
+     * retrieval.
+     *
+     * @param urlText The URL to request from
+     */
+    public TelemetrySource(String urlText) {
+        try {
+            // Create a URL and HTTPConnection and add needed headers
+            URL url = new URL(urlText);
+            HttpURLConnection hc = (HttpURLConnection) url.openConnection();
+            hc.addRequestProperty("Authorization", Config.API_AUTH);
+            hc.addRequestProperty("Accept-Encoding", "gzip");
+
+            Reader reader = null;
+            if ("gzip".equals(hc.getContentEncoding())) {
+                reader = new InputStreamReader(new GZIPInputStream(hc.getInputStream()));
+            }
+            else {
+                reader = new InputStreamReader(hc.getInputStream());
+            }
+
+            data = "";
+            int len;
+            int bufferSize = 1000000; // Number of characters to read at a time
+            char[] buffer = new char[bufferSize];
+            while((len = reader.read(buffer)) > 0) {
+                if(len != bufferSize) {
+                    buffer = Arrays.copyOf(buffer, len);
+                }
+                data += String.valueOf(buffer);
+            }
+
+            // Store the original URL for reference
+            urlArchive = urlText;
+        } catch(MalformedURLException e) {
+            System.err.println("Error while forming API request: MalformedURLException");
+            e.printStackTrace();
+        } catch(IOException e) {
+            System.err.println("Error while forming API request: IOException");
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Gets the locally stored API data.
+     *
+     * @return The locally stored API data
+     */
+    public String get() {
+        return data;
+    }
+
+    /**
+     * Returns a string representation of the request.
+     * @return A string representation of the request
+     */
+    public String toString() {
+        return "~~~ API request to endpoint " + urlArchive + ":\n" + "~~~~~~ " + data;
+    }
+
+}
